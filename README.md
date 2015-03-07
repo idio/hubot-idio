@@ -1,8 +1,8 @@
-# hubot-idio
+# hubot-idio [![Build Status](https://travis-ci.org/idio/hubot-idio.svg?branch=master)](https://travis-ci.org/idio/hubot-idio)
 
-A hubot script that performs idio specific tasks
+A hubot script that performs idio specific tasks.
 
-See [`src/idio.coffee`](src/idio.coffee) for full documentation.
+See the scripts in [`src/`](src/) for full documentation.
 
 ## Installation
 
@@ -20,7 +20,4 @@ Then add **hubot-idio** to your `external-scripts.json`:
 
 ## Sample Interaction
 
-```
-user1>> hubot hello
-hubot>> hello!
-```
+_Each script is quite different, better to go read the code._
