@@ -2,6 +2,7 @@
   "name": "hubot-idio",
   "description": "A hubot script that performs idio specific tasks",
   "version": "0.0.0",
+  "private": true,
   "author": "Mal Graty <mal.graty@googlemail.com>",
   "license": "MIT",
 
