@@ -13,7 +13,10 @@
   "bugs": {
     "url": "https://github.com/idio/hubot-idio/issues"
   },
-  "dependencies": {},
+  "dependencies": {
+    "aws-sdk": "^2.1.16",
+    "chef": "^0.3.1"
+  },
   "peerDependencies": {
     "hubot": "2.x"
   },
