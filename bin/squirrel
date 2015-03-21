@@ -1,0 +1,506 @@
+#! /bin/sh
+
+# usage
+
+usage() {
+  cat <<-EOF
+		usage: $(basename $0) subcommand [options] repo version [branches]
+
+		subcommands:
+
+		  spin    create a release branch for this version on the repo
+		  ship    if no branch specified, merge spun release into master and development
+		          otherwise merge in specified branches as a patch
+
+		options:
+
+		  -d  dry run, print push commands but do not run them
+		  -f  force merges, in the event of a conflict prefer changes being merged in
+	EOF
+  exit 1
+}
+
+
+
+# constants
+
+constants() {
+  local path="$(cd $(dirname "$0"); pwd)"
+
+  # fix up $__ for sudo
+  __="$path/$(basename $0)"
+
+  # add npm bin to path
+  export PATH="$(cd $path; npm bin):$PATH"
+
+  # configure git
+  if [ -n "$GIT_SSH_KEY" ]
+    then export GIT_SSH="$__"
+  fi
+
+  # defaults
+  if [ -z "$GIT_REMOTE_HOST" ]
+    then GIT_REMOTE_HOST="git@github.com"
+  fi
+  if [ -z "$GIT_REMOTE_PREFIX" ]
+    then GIT_REMOTE_PREFIX="idio/"
+  fi
+  if [ -z "$BENCH" ]
+    then BENCH="/tmp/squirrel.$$"
+  fi
+
+  # constants
+  GIT_REMOTE="$GIT_REMOTE_HOST:$GIT_REMOTE_PREFIX"
+  STEMS="development master"
+}
+
+
+
+# initialisers
+
+basic() {
+  # presume 1 inputs
+  assert [ $# -ge 1 ] || usage
+
+  # constants
+  constants
+
+  # configure caching
+  CACHE="/dev/shm/squirrel.$$"
+
+  # ensure no cache conflicts
+  if [ -e "$CACHE" ]
+    then rm -r "$CACHE"
+  fi
+
+  # clean up cache on exit
+  ackbar '$CACHE'
+
+  # validate repository
+  lookup "$1" > /dev/null
+
+  # alias input
+  repo="$1"
+}
+
+complex() {
+  # presume 2 inputs
+  assert [ $# -ge 2 ] || usage
+
+  # basic initialiser
+  basic "$@"; shift 1
+
+  # validate version
+  check "$repo" "$1"
+
+  # alias inputs
+  version="v$(valid $1)"
+  release="release/$version"
+
+  # ensure we have somewhere to work
+  if [ ! -d "$BENCH" ]
+    then
+      mkdir -p "$BENCH" && ackbar "$BENCH" || \
+        catch "could not create $BENCH/"
+  fi
+
+  # and permissions to write there
+  assert [ -w "$BENCH" ] || \
+    catch "insufficient permissions to write to $BENCH/"
+
+  # enter workbench
+  cd "$BENCH"
+}
+
+
+
+# utils
+
+ackbar() {
+  trap "rm -r '$1' 2> /dev/null" EXIT
+}
+
+assert() {
+  if [ "$1" = "not" ]
+    then shift; ! "$@"
+    else "$@"
+  fi
+}
+
+cache() {
+  local __="$1"; shift
+  if [ -z "$CACHE" ]
+    then "$@"; return $?
+  fi
+  local key="$CACHE/$__"
+  local value="$(cat "$key" 2> /dev/null)"
+  local code=0
+  if [ -z "$value" ]
+    then
+      value="$("$@")"
+      code=$?
+      if [ ! -d "$CACHE" ]
+        then mkdir -p "$CACHE"
+      fi
+      echo "$value" > "$key"
+  fi
+  echo "$value"
+  return $code
+}
+
+catch() {
+  if [ $? -ne 0 ]
+    then err fatal "$@"
+  fi
+}
+
+contains() {
+  local __="$1"; shift
+  newline "$@" | grep -Fqx "$__"
+}
+
+empty() {
+  if [ -n "$*" ]
+    then
+      echo "$@"
+      return 1
+  fi
+}
+
+err() {
+  local __="$1"
+  if [ "$__" = "exit" ]
+    then shift
+  fi
+  out "$@" >&2
+  case "$__" in
+    exit|fatal) exit 1 ;;
+  esac
+}
+
+exclude() {
+  local __="$1"; shift
+  echo "$__" | grep -Fvx "$(newline "$@")"
+}
+
+slurp() {
+  local __="$1"; shift
+  if [ $# -eq 0 ]
+    then
+      local IFS="$(echo \'\\n\')"
+      set -- $(cat)
+      unset IFS
+  fi
+  $__ "$@"
+}
+
+newline() {
+  printf "%s\\n" "$@"
+}
+
+out() {
+  local __="$1"; shift
+  if [ "$#" -gt 0 ]
+    then echo "$__: $@"
+    else echo "$__"
+  fi
+}
+
+
+
+# git
+
+checkout() {
+  git checkout -q "$@" > /dev/null
+}
+
+clone() {
+  local repo="$(remote $1)"
+  git clone -q "$repo" 2> /dev/null || \
+    catch "unable to clone $repo"
+  trap "rm -rf '$PWD/$1'" EXIT
+  cd "$1"
+}
+
+commit() {
+  git commit -q "$@"
+}
+
+exists() {
+  contains "$2" $(heads "$1")
+}
+
+heads() {
+  cache "$1_heads" \
+    refs heads "$1"
+}
+
+lookup() {
+  cache "$1_refs" \
+    git ls-remote --heads --tags "$(remote $1)" 2> /dev/null || \
+      catch "$1 is not a valid repository"
+}
+
+merge() {
+  local stategy=
+  test -z "$opt_force" || \
+    stategy="-X theirs"
+  git merge -q $stategy --no-ff "$@" > /dev/null 2>&1
+}
+
+push() {
+  test -n "$opt_dry" || \
+    git push -q "$@"
+}
+
+refs() {
+  lookup "$2" | \
+    awk '{ print $2 }' | \
+      sed -n "/\^{}/d; s/refs\/$1\///p" 2> /dev/null
+}
+
+remote() {
+  echo "$GIT_REMOTE$1.git"
+}
+
+tag() {
+  git tag -a "$1" -m "$1"
+}
+
+tags() {
+  cache "$1_tags" \
+    refs tags "$1"
+}
+
+
+
+# semver
+
+gt() {
+  semver -v "$1" -r ">$2"
+}
+
+newest() {
+  "$@" | valid | tail -n1 | assert not slurp empty
+}
+
+valid() {
+  slurp "semver -v" "$@"
+}
+
+
+
+# app
+
+bootstrap() {
+  local cache="$HOME/rr-cache/$1"
+  test -d "$cache" && \
+    ln -s "$cache" ".git/rr-cache"
+  test -x ".jeffscript" && \
+    ./.jeffscript bootstrap
+}
+
+bump() {
+  echo "$1" > VERSION
+  git add VERSION
+  if [ -f ".git/MERGE_HEAD" ]
+    then commit --no-edit > /dev/null 2>&1
+    else commit -m "Bump version to $1" 2> /dev/null
+  fi
+}
+
+check() {
+  assert valid "$2" > /dev/null || \
+    catch "$2 is not a valid version"
+  assert gt "$2" "$(version $1)" > /dev/null || \
+    catch "version must be greater than v$(version $1)"
+}
+
+create() {
+  checkout --orphan "$1"
+  git rm -rf . > /dev/null 2>&1
+  commit --allow-empty -m "Initialise $1"
+}
+
+guard() {
+  local release="$(exclude "$(releases "$1")" "$2" | list)"
+  test -z "$release" || \
+    catch "release $release already in progress"
+}
+
+list() {
+  awk -vORS=', ' '{ print $1 }' | sed 's/, $//'
+}
+
+options() {
+  local flags=
+  local opt=
+  while getopts "df" opt
+    do
+      case "$opt" in
+        d) opt_dry=true ; flags="$flags dry-run" ;;
+        f) opt_force=true ; flags="$flags forced" ;;
+      esac
+  done
+  local opts=$(($OPTIND-1))
+  unset OPTARG; OPTIND=1
+  assert [ "$opts" -le 255 ] || \
+    catch "more than 255 options? piss off"
+#   test -z "$flags" || \
+#     err "flags: $(newline $flags | list)"
+  return $opts
+}
+
+release() {
+  newest releases "$1" || \
+    catch "unable to find a release candidate"
+}
+
+releases() {
+  cache "$1_releases" \
+    refs "heads\/release" "$1"
+}
+
+version() {
+  newest tags "$1" || \
+    echo "0.0.0"
+}
+
+
+
+# actions
+
+spin() {
+  # opts
+  options "$@"; shift $?
+
+  # initialise
+  complex "$@"; shift 2
+
+  # enforce one release at a time
+  guard "$repo" "$version"
+
+  # verify release does not already exist
+  assert not exists "$repo" "$release" || \
+    catch "$release already exists"
+
+  # clone
+  clone "$repo"
+
+  # create release
+  checkout -b "$release" development
+
+  # bump version
+  bump "$version"
+
+  # publish
+  push -u origin "$release"
+
+  # bye
+  echo "$repo $version now available for testing"
+}
+
+ship() {
+  # opts
+  options "$@"; shift $?
+
+  # initialise
+  complex "$@"; shift 2
+
+  # define loop variable
+  local branch=
+
+  # default to release branch
+  if [ $# -eq 0 ]
+    then set -- "$release"
+    else release="$1"
+  fi
+
+  # verify branches to be merged exist
+  for branch in "$@"
+    do
+      assert exists "$repo" "$branch" || \
+        catch "$branch is not a valid branch"
+  done
+
+  # clone
+  clone "$repo"
+
+  # bootstrap
+  bootstrap "$repo"
+
+  # checkout branches to be merged
+  for branch in "$@"
+    do checkout "$branch"
+  done
+
+  # combine multiple branches into a single patch
+  if [ $# -gt 1 ]
+    then
+      release="patch/$version"
+      checkout -b "$release" "$1~1"
+      merge --ff "$@" || \
+        catch "conflict when merging branches into patch"
+  fi
+
+  # bump version
+  bump "$version"
+
+  # ensure stems exist
+  for branch in $STEMS
+    do
+      assert exists "$repo" "$branch" || \
+        create "$branch"
+  done
+
+  # perform merges
+  for branch in $STEMS
+    do
+      checkout "$branch"
+      merge "$release" || \
+        bump "$version" || \
+          catch "conflict when merging release into $branch"
+  done
+
+  # push merges
+  for branch in $STEMS
+    do push origin "$branch"
+  done
+
+  # tag release
+  checkout master
+  tag "$version"
+  push --tags
+
+  # delete merged branches
+  for branch in "$@"
+    do
+      if ! contains "$branch" $STEMS
+        then push origin ":$branch"
+      fi
+  done
+
+  # bye
+  echo "$repo $version just shipped"
+}
+
+
+
+# main
+
+assert [ $# -ge 1 ] || usage
+
+__="$1"; shift
+case "$__" in
+
+  release) basic "$@"; release "$repo" ;;
+  version) basic "$@"; version "$repo" ;;
+
+  ship*) ship "$@" ;;
+  spin*) spin "$@" ;;
+
+  git@github.com*) exec ssh -o "StrictHostKeyChecking=no" -i "$GIT_SSH_KEY" "$__" "$@" ;;
+
+  *) usage ;;
+
+esac
