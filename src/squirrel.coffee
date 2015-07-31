@@ -92,7 +92,7 @@ module.exports = (robot) ->
       @schema = process schema, (r) -> Promise.resolve new Repo r
 
     proxy: (method, args) ->
-      @schema.then (s) -> process s, (r) -> r[method] args...
+      @schema.then((s) -> process s, (r) -> r[method] args...)
         .then (o) =>
           out = o.reduce ((s, f) -> s.concat(f)), []
           Promise.resolve o.shift().replace /^[\S]+/, @name
@@ -129,7 +129,7 @@ module.exports = (robot) ->
       when 'ship' then msg.send "Shipping #{name} ...#{options}"
 
     repo[method](opts, args...)
-      .then (o) -> msg.send o
+      .then((o) -> msg.send o)
       .catch (e) -> msg.send e.message
 
   robot.respond /(ship|spin)((?:\s+-\w+)+)?\s+(\w.*)/i, respond

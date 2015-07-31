@@ -44,8 +44,8 @@ module.exports = (robot) ->
     process.env.HUBOT_CHEF_HOST
 
   sda = robot
-    .http 'https://api.serverdensity.io'
-    .header 'accept', 'application/json'
+    .http('https://api.serverdensity.io')
+    .header('accept', 'application/json')
     .query token: process.env.HUBOT_SERVERDENSITY_TOKEN
 
   # requests
@@ -55,7 +55,7 @@ module.exports = (robot) ->
       ec2.describeInstanceStatus (err, data) ->
         return rej err if err
         out = data.InstanceStatuses
-          .filter (i) -> i.InstanceState.Name isnt 'terminated'
+          .filter((i) -> i.InstanceState.Name isnt 'terminated')
           .map (i) -> i.InstanceId
         res out
 
@@ -110,9 +110,9 @@ module.exports = (robot) ->
 
   command = (fn) ->
     Promise.all([servers(), clients(), nodes(), devices()])
-      .then organise
-      .then fn
-      .then summary
+      .then(organise)
+      .then(fn)
+      .then(summary)
 
   organise = spread (servers, clients, nodes, devices) ->
     safe = {}
@@ -170,10 +170,10 @@ module.exports = (robot) ->
 
   robot.respond /aisle3 clean/i, (msg) ->
     command(clean)
-      .then (out) -> msg.send out
+      .then((out) -> msg.send out)
       .catch (e) -> msg.send error e
 
   robot.respond /aisle3 (?:list|stat(?:e|us))/i, (msg) ->
     command(list)
-      .then (out) -> msg.send out
+      .then((out) -> msg.send out)
       .catch (e) -> msg.send error e
