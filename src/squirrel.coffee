@@ -4,9 +4,12 @@
 #   A hubot script that handles idio's day to day shipping operations
 #
 # Configuration:
-#   HUBOT_IDIO_SQUIRREL_GIT_REMOTE_HOST: optional
-#   HUBOT_IDIO_SQUIRREL_GIT_REMOTE_PREFIX: optional
-#   HUBOT_IDIO_SQUIRREL_GIT_SSH_KEY: optional
+#   HUBOT_IDIO_GIT_REMOTE_HOST: optional
+#   HUBOT_IDIO_GIT_REMOTE_PREFIX: optional
+#   HUBOT_IDIO_GIT_RR_CACHE: optional
+#   HUBOT_IDIO_GIT_SSH_KEY: optional
+#   HUBOT_IDIO_GIT_USER_EMAIL: required
+#   HUBOT_IDIO_GIT_USER_NAME: required
 #
 # Commands:
 #   hubot spin <repo> [type] - Spin a new minor or major release candidate
@@ -29,17 +32,27 @@ exec = require('child_process').execFile
 resolve = require('path').resolve
 semver = require 'semver'
 
+config = {}
+Object.keys(process.env).forEach (k) ->
+  key = k.replace(/^HUBOT_IDIO_/, '')
+  config[key] = process.env[k] unless key is k
+
 module.exports = (robot) ->
 
   bin = resolve __dirname, '..', 'node_modules', '.bin'
   script = resolve __dirname, '..', 'bin', 'squirrel'
 
+  email = robot.name.replace(/\W+/, '+').replace(/^\W+|\W+$/, '').toLowerCase()
   env = env:
-    GIT_REMOTE_HOST: process.env.HUBOT_IDIO_SQUIRREL_GIT_REMOTE_HOST ? ''
-    GIT_REMOTE_PREFIX: process.env.HUBOT_IDIO_SQUIRREL_GIT_REMOTE_PREFIX ? ''
-    GIT_SSH_KEY: process.env.HUBOT_IDIO_SQUIRREL_GIT_SSH_KEY ? ''
-    HOME: process.env.HOME ? ''
+    GIT_AUTHOR_EMAIL: config.GIT_USER_EMAIL ? "#{email}@hubot"
+    GIT_AUTHOR_NAME: config.GIT_USER_NAME ? robot.name
+    GIT_REMOTE_HOST: config.GIT_REMOTE_HOST ? ''
+    GIT_REMOTE_PREFIX: config.GIT_REMOTE_PREFIX ? ''
+    GIT_RR_CACHE: config.GIT_RR_CACHE ? ''
+    GIT_SSH_KEY: config.GIT_SSH_KEY ? ''
     PATH: bin + ':' + process.env.PATH
+  env.GIT_COMMITTER_EMAIL = env.GIT_AUTHOR_EMAIL
+  env.GIT_COMMITTER_NAME = env.GIT_AUTHOR_NAME
 
   flags = d: 'dry-run', f: 'force'
   noflags = RegExp "[^#{Object.keys(flags).join('')}]"

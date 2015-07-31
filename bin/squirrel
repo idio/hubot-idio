@@ -226,6 +226,10 @@ commit() {
   git commit -q "$@"
 }
 
+config() {
+  git config "$1" "$2"
+}
+
 exists() {
   contains "$2" $(heads "$1")
 }
@@ -293,9 +297,14 @@ valid() {
 # app
 
 bootstrap() {
-  local cache="$HOME/rr-cache/$1"
-  test -d "$cache" && \
-    ln -s "$cache" ".git/rr-cache"
+  if [ -n "$GIT_RR_CACHE" ]
+    then
+      local cache="$GIT_RR_CACHE/$1"
+      test -d "$cache" && \
+        ln -s "$cache" ".git/rr-cache" && \
+        config rerere.autoupdate true && \
+        config rerere.enable true
+  fi
   test -x ".jeffscript" && \
     ./.jeffscript bootstrap
 }

@@ -29,24 +29,29 @@ read = require('fs').readFileSync
 aws = require 'aws-sdk'
 chef = require 'chef'
 
+config = {}
+Object.keys(process.env).forEach (k) ->
+  key = k.replace(/^HUBOT_/, '')
+  config[key] = process.env[k] unless key is k
+
 module.exports = (robot) ->
 
   # clients
 
   ec2 = new aws.EC2
-    accessKeyId: process.env.HUBOT_AWS_ACCESS
-    secretAccessKey: process.env.HUBOT_AWS_SECRET
-    region: process.env.HUBOT_AWS_REGION
+    accessKeyId: config.AWS_ACCESS
+    secretAccessKey: config.AWS_SECRET
+    region: config.AWS_REGION
 
   hat = chef.createClient \
-    process.env.HUBOT_CHEF_USER,
-    read(process.env.HUBOT_CHEF_KEY),
-    process.env.HUBOT_CHEF_HOST
+    config.CHEF_USER,
+    read(config.CHEF_KEY),
+    config.CHEF_HOST
 
   sda = robot
     .http('https://api.serverdensity.io')
     .header('accept', 'application/json')
-    .query token: process.env.HUBOT_SERVERDENSITY_TOKEN
+    .query token: config.SERVERDENSITY_TOKEN
 
   # requests
 
