@@ -133,7 +133,7 @@ module.exports = (robot) ->
 
     repo = switch name
       when 'platform', 'it'
-        new Group 'platform', 'cake', ['api', 'backend', 'manager', 'site']
+        new Group 'platform', 'cake', ['api', 'backend', 'manager' ]
       else
         new Repo name
 
