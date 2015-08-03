@@ -51,13 +51,14 @@ module.exports = (robot) ->
     GIT_RR_CACHE: config.GIT_RR_CACHE ? ''
     GIT_SSH_KEY: config.GIT_SSH_KEY ? ''
     PATH: bin + ':' + process.env.PATH
-  env.GIT_COMMITTER_EMAIL = env.GIT_AUTHOR_EMAIL
-  env.GIT_COMMITTER_NAME = env.GIT_AUTHOR_NAME
+  env.env.GIT_COMMITTER_EMAIL = env.env.GIT_AUTHOR_EMAIL
+  env.env.GIT_COMMITTER_NAME = env.env.GIT_AUTHOR_NAME
 
   flags = d: 'dry-run', f: 'force'
   noflags = RegExp "[^#{Object.keys(flags).join('')}]"
 
   squirrel = (args...) ->
+    args = args.filter (a) -> a
     new Promise (res, rej) ->
       exec script, args, env, (err, stdout, stderr) ->
         rej new Error stderr.replace(/^\w+:/, '').trim(), '' if err
@@ -115,7 +116,8 @@ module.exports = (robot) ->
 
 
   respond = (msg) ->
-    opts = msg.match[2].replace /[\-\s]+/g, ''
+    opts = msg.match[2] ? ''
+    opts = opts.replace /[\-\s]+/g, ''
     if opts
       if noflags.test opts
         return msg.send 'Invalid flag; only -d and -f are supported'
