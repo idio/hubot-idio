@@ -254,7 +254,7 @@ merge() {
 
 push() {
   test -n "$opt_dry" || \
-    git push -q "$@"
+    git push -q "$@" > /dev/null
 }
 
 refs() {
@@ -314,7 +314,7 @@ bump() {
   git add VERSION
   if [ -f ".git/MERGE_HEAD" ]
     then commit --no-edit > /dev/null 2>&1
-    else commit -m "Bump version to $1" 2> /dev/null
+    else commit -m "Bump version to $1" > /dev/null 2>&1
   fi
 }
 
