@@ -130,7 +130,7 @@ module.exports = (robot) ->
     options = if options.length then ' (' + options.join(', ') + ')' else ''
 
     method = msg.match[1]
-    args = msg.match[3].split /\s+/g
+    args = msg.match[3].split(/\s+/g).filter (v) -> v
     name = args.shift()
 
     repo = switch name
