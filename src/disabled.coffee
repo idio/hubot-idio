@@ -22,24 +22,23 @@ module.exports = (robot) ->
 
     url = 'https://api.serverdensity.io/alerts/configs/?filter={%22enabled%22:false}&token=' + process.env.HUBOT_SERVERDENSITY_TOKEN
 
-    request.get { uri: url, json: true }, (err, r, body) -> results = body
+    request.get { uri: url, json: true }, (err, r, body) ->
+      results = body
 
-    if results.length < 1
-      msg.send "No disabled alerts found"
-      return
+      if results.length < 1
+        msg.send "No disabled alerts found"
+        return
 
-    disabled = []
-    for result in results
-      # Get subject name or something if subjectType == service
-      name = result['subjectId'] if result['subjectType'] is 'deviceGroup'
+      msg.send "Disabled alerts:"
+      
+      for result in results
+        name = ''
 
-      if result['subjectType'] is 'service'
-        s_url = "https://api.serverdensity.io/inventory/services/#{result['subjectId']}/?token=" + process.env.HUBOT_SERVERDENSITY_TOKEN
-        request.get { uri: s_url, json: true }, (err, r, body) -> subject = body
-        name = subject['name']
+        if result['subjectType'] is 'service'
+          s_url = "https://api.serverdensity.io/inventory/services/#{result['subjectId']}/?token=" + process.env.HUBOT_SERVERDENSITY_TOKEN
+          request.get { uri: s_url, json: true }, (err, r, body) -> name = body['name']
 
-      disabled.push("#{name} - #{result['fullField']}  #{result['comparison']} #{result['value']}")
+        else if result['subjectType'] is 'deviceGroup'
+          name = result['subjectId']
 
-    msg.send "Disabled alerts:"
-    for d in disabled
-      msg.send d
+        msg.send "#{name} - #{result['fullField']} #{result['comparison']} #{result['value']}"
