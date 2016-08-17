@@ -312,6 +312,8 @@ bootstrap() {
 bump() {
   echo "$1" > VERSION
   git add VERSION
+  test -x ".jeffscript" && \
+    ./.jeffscript bump "$1"
   if [ -f ".git/MERGE_HEAD" ]
     then commit --no-edit > /dev/null 2>&1
     else commit -m "Bump version to $1" > /dev/null 2>&1
