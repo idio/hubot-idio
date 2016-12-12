@@ -38,7 +38,7 @@ module.exports = (robot) ->
           s_url = "https://api.serverdensity.io/inventory/services/#{result['subjectId']}/?token=" + process.env.HUBOT_SERVERDENSITY_TOKEN
           request.get { uri: s_url, json: true }, (err, r, body) -> name = body['name']
 
-        else if result['subjectType'] is 'deviceGroup'
+        else if (result['subjectType'] is 'deviceGroup' || result['subjectType'] is 'serviceGroup')
           name = result['subjectId']
 
         msg.send "#{name} - #{result['fullField']} #{result['comparison']} #{result['value']}"
