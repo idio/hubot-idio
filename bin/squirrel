@@ -94,7 +94,7 @@ complex() {
   check "$repo" "$1"
 
   # alias inputs
-  version="v$(valid $1)"
+  version="$(valid $1)"
   release="release/$version"
 
   # ensure we have somewhere to work
@@ -464,14 +464,17 @@ ship() {
         create "$branch"
   done
 
-  # perform merges
-  for branch in $STEMS
-    do
-      checkout "$branch"
-      merge "$release" || \
-        bump "$version" || \
-          catch "conflict when merging release into $branch"
-  done
+  # perform merge to master
+  checkout "master"
+  merge "$release" || \
+    bump "$version" || \
+      catch "conflict when merging release into master"
+
+  # perform merge back to development
+  checkout "development"
+  merge "master" || \
+    bump "$version" || \
+      catch "conflict when merging master back into development"
 
   # push merges
   for branch in $STEMS
