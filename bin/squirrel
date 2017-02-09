@@ -451,7 +451,8 @@ ship() {
       release="patch/$version"
       checkout -b "$release" "$1~1"
       merge --ff "$@" || \
-        catch "conflict when merging branches into patch"
+        bump "$(version "$repo")" || \
+          catch "conflict when merging branches into patch"
   fi
 
   # bump version
