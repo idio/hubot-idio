@@ -14,6 +14,7 @@
     "url": "https://github.com/idio/hubot-idio/issues"
   },
   "dependencies": {
+    "octokat": "^0.6.2",
     "semver": "^4.3.1"
   },
   "peerDependencies": {
