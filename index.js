@@ -6,6 +6,6 @@ const {resolve} = require('path')
 module.exports = (robot) => {
   const path = resolve(__dirname, 'src')
   if (fs.existsSync(path)) {
-    fs.readdirSync(path).each(s => robot.loadFile(path, s))
+    fs.readdirSync(path).forEach(s => robot.loadFile(path, s))
   }
 }
