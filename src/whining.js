@@ -26,7 +26,7 @@ const repo = process.env.HUBOT_IDIO_WHINING_REPO || 'docs'
 
 const whine = (self, charizard) => {
   const now = new Date
-  return octo.search.issues.fetch({q: `org:${org} is:open is:issue no:label`})
+  return octo.search.issues.fetch({q: `org:${org} is:open is:issue no:label is:private`})
     .then(r => r.items.map(i => `* ${i.user.login}: [${i.title}](${i.htmlUrl})`))
     .then(i => {
       const content = [
