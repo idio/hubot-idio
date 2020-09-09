@@ -101,7 +101,7 @@ complex() {
 
   # alias inputs
   version="$(valid $1)"
-  release="release/$version"
+  release="rc/$version"
 
   # ensure we have somewhere to work
   if [ ! -d "$BENCH" ]
@@ -379,7 +379,7 @@ release() {
 
 releases() {
   cache "$1_releases" \
-    refs "heads\/release" "$1"
+    refs "heads\/rc" "$1"
 }
 
 version() {
