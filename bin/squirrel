@@ -294,6 +294,10 @@ newest() {
   "$@" | valid | tail -n1 | assert not slurp empty
 }
 
+next() {
+  printf "$1" | awk 'BEGIN { FS = OFS = "."; } $2 = $2 + 1'
+}
+
 valid() {
   slurp "semver -v" "$@"
 }
@@ -413,6 +417,10 @@ spin() {
   # publish
   push -u origin "$release"
 
+  # tag release
+  tag "$version-rc"
+  push --tags
+
   # bye
   echo "$repo $version now available for testing"
 }
@@ -477,20 +485,26 @@ ship() {
     bump "$version" || \
       catch "conflict when merging release into $main"
 
+  # tag release
+  tag "$version"
+
   # perform merge back to $develop
   checkout "$develop"
   merge "$main" || \
     bump "$version" || \
       catch "conflict when merging $main back into $develop"
 
+  # tag dev
+  if [ $# -eq 0 ]
+    then tag "$(next "$version")-dev"
+  fi
+
   # push merges
   for branch in $stems
     do push origin "$branch"
   done
 
-  # tag release
-  checkout "$main"
-  tag "$version"
+  # push tags
   push --tags
 
   # delete merged branches
