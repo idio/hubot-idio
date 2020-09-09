@@ -9,7 +9,7 @@ usage() {
 		subcommands:
 
 		  spin    create a release branch for this version on the repo
-		  ship    if no branch specified, merge spun release into main and develop
+		  ship    if no branch specified, merge spun release into main and dev
 		          otherwise merge in specified branches as a patch
 
 		options:
@@ -80,10 +80,10 @@ basic() {
 
   # branch stems
   if exists "$1" "main"
-    then develop="develop" main="main"
-    else develop="development" main="master"
+    then dev="dev" main="main"
+    else dev="development" main="master"
   fi
-  stems="$develop $main"
+  stems="$dev $main"
 
   # alias input
   repo="$1"
@@ -409,7 +409,7 @@ spin() {
   clone "$repo"
 
   # create release
-  checkout -b "$release" "$develop"
+  checkout -b "$release" "$dev"
 
   # bump version
   bump "$version"
@@ -488,11 +488,11 @@ ship() {
   # tag release
   tag "$version"
 
-  # perform merge back to $develop
-  checkout "$develop"
+  # perform merge back to $dev
+  checkout "$dev"
   merge "$main" || \
     bump "$version" || \
-      catch "conflict when merging $main back into $develop"
+      catch "conflict when merging $main back into $dev"
 
   # tag dev
   if [ $# -eq 0 ]
