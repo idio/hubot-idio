@@ -414,11 +414,19 @@ spin() {
   # bump version
   bump "$version"
 
-  # publish
-  push -u origin "$release"
-
   # tag release
   tag "$version-rc"
+
+  # bump and pre-tag dev
+  checkout "$dev"
+  bump "$(next "$version")"
+  tag "$(next "$version")-dev"
+
+  # push branches
+  for branch in "$dev" "$release"
+    do push -u origin "$branch"
+  done
+
   push --tags
 
   # bye
@@ -493,11 +501,6 @@ ship() {
   merge "$main" || \
     bump "$version" || \
       catch "conflict when merging $main back into $dev"
-
-  # tag dev
-  if [ $# -eq 0 ]
-    then tag "$(next "$version")-dev"
-  fi
 
   # push merges
   for branch in $stems
