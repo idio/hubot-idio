@@ -9,7 +9,7 @@ usage() {
 		subcommands:
 
 		  spin    create a release branch for this version on the repo
-		  ship    if no branch specified, merge spun release into master and development
+		  ship    if no branch specified, merge spun release into main and dev
 		          otherwise merge in specified branches as a patch
 
 		options:
@@ -51,7 +51,6 @@ constants() {
 
   # constants
   GIT_REMOTE="$GIT_REMOTE_HOST:$GIT_REMOTE_PREFIX"
-  STEMS="development master"
 }
 
 
@@ -79,6 +78,13 @@ basic() {
   # validate repository
   lookup "$1" > /dev/null
 
+  # branch stems
+  if exists "$1" "main"
+    then dev="dev" main="main"
+    else dev="development" main="master"
+  fi
+  stems="$dev $main"
+
   # alias input
   repo="$1"
 }
@@ -95,7 +101,7 @@ complex() {
 
   # alias inputs
   version="$(valid $1)"
-  release="release/$version"
+  release="rc/$version"
 
   # ensure we have somewhere to work
   if [ ! -d "$BENCH" ]
@@ -288,6 +294,10 @@ newest() {
   "$@" | valid | tail -n1 | assert not slurp empty
 }
 
+next() {
+  printf "$1" | awk 'BEGIN { FS = OFS = "."; } $2 = $2 + 1'
+}
+
 valid() {
   slurp "semver -v" "$@"
 }
@@ -369,7 +379,7 @@ release() {
 
 releases() {
   cache "$1_releases" \
-    refs "heads\/release" "$1"
+    refs "heads\/rc" "$1"
 }
 
 version() {
@@ -399,13 +409,25 @@ spin() {
   clone "$repo"
 
   # create release
-  checkout -b "$release" development
+  checkout -b "$release" "$dev"
 
   # bump version
   bump "$version"
 
-  # publish
-  push -u origin "$release"
+  # tag release
+  tag "$version-rc"
+
+  # bump and pre-tag dev
+  checkout "$dev"
+  bump "$(next "$version")"
+  tag "$(next "$version")-dev"
+
+  # push branches
+  for branch in "$dev" "$release"
+    do push -u origin "$branch"
+  done
+
+  push --tags
 
   # bye
   echo "$repo $version now available for testing"
@@ -459,38 +481,39 @@ ship() {
   bump "$version"
 
   # ensure stems exist
-  for branch in $STEMS
+  for branch in $stems
     do
       assert exists "$repo" "$branch" || \
         create "$branch"
   done
 
-  # perform merge to master
-  checkout "master"
+  # perform merge to $main
+  checkout "$main"
   merge "$release" || \
     bump "$version" || \
-      catch "conflict when merging release into master"
+      catch "conflict when merging release into $main"
 
-  # perform merge back to development
-  checkout "development"
-  merge "master" || \
+  # tag release
+  tag "$version"
+
+  # perform merge back to $dev
+  checkout "$dev"
+  merge "$main" || \
     bump "$version" || \
-      catch "conflict when merging master back into development"
+      catch "conflict when merging $main back into $dev"
 
   # push merges
-  for branch in $STEMS
+  for branch in $stems
     do push origin "$branch"
   done
 
-  # tag release
-  checkout master
-  tag "$version"
+  # push tags
   push --tags
 
   # delete merged branches
   for branch in "$@"
     do
-      if ! contains "$branch" $STEMS
+      if ! contains "$branch" $stems
         then push origin ":$branch"
       fi
   done
