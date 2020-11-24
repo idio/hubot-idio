@@ -299,7 +299,7 @@ next() {
 }
 
 valid() {
-  slurp "semver -v" "$@"
+  slurp "semver -v" "$@" | grep -v -
 }
 
 
